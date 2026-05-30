@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Face Analysis GPT</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { margin: 0; background: #0d0d14; font-family: sans-serif; color: white; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef } = React;
+
+        const PROMPT = `You are a precise facial analysis system. Analyze this face photo and return ONLY valid JSON, no markdown, no backticks. Return exactly: {"score": 5.0, "grade": "Average", "summary": "Example summary", "age_estimate": 25, "gender": "Male", "face_shape": "Oval", "expression": "Neutral", "metrics": {"symmetry": 5.0, "proportions": 5.0, "cheekbones": 5.0, "jawline": 5.0, "eyes": 5.0, "nose": 5.0, "lips": 5.0}, "highlights": ["Feature 1", "Feature 2"], "no_face": false}`;
+
+        function FaceAnalysis() {
+            const [phase, setPhase] = useState("idle");
+            const [b64, setB64] = useState(null);
+            const [result, setResult] = useState(null);
+            const fileRef = useRef();
+
+            const handleFile = (file) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    setB64(e.target.result.split(",")[1]);
+                    setPhase("preview");
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const analyze = async () => {
+                setPhase("scanning");
+                try {
+                    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+                        method: "POST",
+                        headers: { 
+                            "Content-Type": "application/json", 
+                            "Authorization": "Bearer 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" 
+                        },
+                        body: JSON.stringify({
+                            model: "gpt-4o",
+                            messages: [{ 
+                                role: "user", 
+                                content: [
+                                    { type: "text", text: PROMPT },
+                                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${b64}` } }
+                                ] 
+                            }]
+                        })
+                    });
+                    const data = await res.json();
+                    const content = data.choices[0].message.content;
+                    const parsed = JSON.parse(content.replace(/```json|```/g, ""));
+                    setResult(parsed);
+                    setPhase("done");
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                    setPhase("idle");
+                }
+            };
+
+            return (
+                <div style={{ padding: 20, textAlign: 'center' }}>
+                    {phase === "idle" && <button onClick={() => fileRef.current.click()}>Выбрать фото</button>}
+                    <input ref={fileRef} type="file" style={{display: 'none'}} onChange={(e) => handleFile(e.target.files[0])} />
+                    
+                    {phase === "preview" && <button onClick={analyze}>Анализировать через GPT</button>}
+                    {phase === "scanning" && <p>Анализ в процессе...</p>}
+                    {phase === "done" && <pre style={{textAlign: 'left'}}>{JSON.stringify(result, null, 2)}</pre>}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<FaceAnalysis />);
+    </script>
+</body>
+</html>
+
