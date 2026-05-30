@@ -8,48 +8,31 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono&family=DM+Sans:wght@300;400&display=swap');
-        body { margin: 0; background: #0d0d14; color: white; overflow: hidden; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        body { margin: 0; background: #0d0d14; color: white; font-family: 'DM Sans', sans-serif; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useRef, useCallback } = React;
-        const API_KEY = "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"; // <--- Вставьте сюда ключ sk-...
+        const { useState, useRef } = React;
+        const API_KEY = "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";
 
-        const PROMPT = `You are a precise facial analysis system. Return ONLY valid JSON: {"score": 8.5, "grade": "Very Good", "summary": "Detailed analysis text.", "age_estimate": 25, "gender": "Male", "face_shape": "Oval", "expression": "Neutral", "metrics": {"symmetry": 8.0, "proportions": 8.0, "cheekbones": 7.0, "jawline": 9.0, "eyes": 8.0, "nose": 7.0, "lips": 8.0}, "highlights": ["Sharp jawline", "Clear skin"], "no_face": false}`;
-        const METRICS_LABELS = [["symmetry", "Symmetry"], ["proportions", "Proportions"], ["cheekbones", "Cheekbones"], ["jawline", "Jawline"], ["eyes", "Eyes"], ["nose", "Nose"], ["lips", "Lips"]];
-
-        // --- ВАШ ОБЪЕКТ СТИЛЕЙ s ---
-        const s = { /* СКОПИРУЙТЕ СЮДА ВАШ ОБЪЕКТ s ИЗ ПЕРВОГО СООБЩЕНИЯ */ };
-
-        // --- КОМПОНЕНТЫ (ScanLine, Results, ScoreCard, MetricsCard, InfoCard, TagsCard) ---
-        // Вставьте сюда функции из вашего первого сообщения
-        function ScanLine() { /* ... код из вашего сообщения ... */ }
-        function ScoreCard({data}) { /* ... код из вашего сообщения ... */ }
-        function MetricsCard({metrics}) { /* ... код из вашего сообщения ... */ }
-        function InfoCard({data}) { /* ... код из вашего сообщения ... */ }
-        function TagsCard({tags}) { /* ... код из вашего сообщения ... */ }
-        function Results({data}) { return <div style={{display:"flex", flexDirection:"column", gap:10}}><ScoreCard data={data}/><MetricsCard metrics={data.metrics}/><InfoCard data={data}/>{data.highlights?.length > 0 && <TagsCard tags={data.highlights}/>}</div>; }
+        const PROMPT = `Analyze this face. Return ONLY valid JSON (no backticks, no text): {"score": 0.0, "grade": "Average", "summary": "...", "age_estimate": 25, "gender": "Male", "face_shape": "Oval", "expression": "Neutral", "metrics": {"symmetry": 5.0, "proportions": 5.0, "cheekbones": 5.0, "jawline": 5.0, "eyes": 5.0, "nose": 5.0, "lips": 5.0}, "highlights": ["Feature"], "no_face": false}`;
 
         function FaceAnalysis() {
             const [phase, setPhase] = useState("idle");
             const [imgSrc, setImgSrc] = useState(null);
-            const [imgName, setImgName] = useState("");
             const [b64, setB64] = useState(null);
             const [result, setResult] = useState(null);
-            const [errMsg, setErrMsg] = useState("");
             const fileRef = useRef();
 
-            const handleFile = (file) => {
-                if(!file) return;
-                setImgName(file.name);
+            const handleFile = (e) => {
+                const file = e.target.files[0];
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    setImgSrc(e.target.result);
-                    setB64(e.target.result.split(",")[1]);
+                reader.onload = (ev) => {
+                    setImgSrc(ev.target.result);
+                    setB64(ev.target.result.split(",")[1]);
                     setPhase("preview");
                 };
                 reader.readAsDataURL(file);
@@ -67,18 +50,24 @@
                         })
                     });
                     const data = await res.json();
-                    const parsed = JSON.parse(data.choices[0].message.content.replace(/```json|```/g, ""));
-                    setResult(parsed);
+                    setResult(JSON.parse(data.choices[0].message.content));
                     setPhase("done");
-                } catch(e) { setErrMsg(e.message); setPhase("error"); }
+                } catch(e) { alert("Error: " + e.message); setPhase("idle"); }
             };
 
-            // --- ЗДЕСЬ ВСТАВЬТЕ ВАШ ОРИГИНАЛЬНЫЙ РАЗДЕЛ RETURN ---
-            return ( <div style={s.root}>{/* Ваш код return */}</div> );
+            return (
+                <div style={{padding: 20}}>
+                    {phase === "idle" && <button onClick={() => fileRef.current.click()}>Upload Photo</button>}
+                    {phase === "preview" && <button onClick={analyze}>Analyze</button>}
+                    <input ref={fileRef} type="file" style={{display:"none"}} onChange={handleFile} />
+                    {imgSrc && <img src={imgSrc} style={{width: 200, display: "block"}} />}
+                    {phase === "scanning" && <p>Scanning...</p>}
+                    {result && <pre style={{background: "#222", padding: 10}}>{JSON.stringify(result, null, 2)}</pre>}
+                </div>
+            );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<FaceAnalysis />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<FaceAnalysis />);
     </script>
 </body>
 </html>
